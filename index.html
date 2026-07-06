@@ -580,8 +580,6 @@ function renderRoute(finalOpt) {
     parts.push(wireHtml({ tag: 'your line', lit: true }));
     parts.push(nodeHtml({ icon: '&#127970;', name: 'Your carrier', sub: 'or call center', lit: true }));
     parts.push(wireHtml({ tag: 'SIP INVITE', lit: true }));
-    parts.push(nodeHtml({ icon: '&#128737;&#65039;', name: 'Border controller', sub: 'SBC', lit: true }));
-    parts.push(wireHtml({ tag: '', lit: true }));
   } else if (q2 === 'port') {
     parts.push(wireHtml({ tag: 'you dial as usual', lit: true }));
     parts.push(nodeHtml({ icon: '&#128222;', name: 'interface.ai number', sub: 'your number, ported', lit: true }));
