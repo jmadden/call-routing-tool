@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Call Routing Method Selector</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #182430;
+    --ink-soft: #46566A;
+    --paper: #F7F8F9;
+    --card: #FFFFFF;
+    --copper: #B85C24;
+    --copper-soft: #F4E4D7;
+    --line: #D9DFE6;
+    --signal: #1E7A5A;
+    --signal-soft: #E2F1EB;
+    --warn: #9A6B15;
+    --warn-soft: #F7EDD8;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.55;
+    padding: 0 20px 80px;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+
+  /* Header */
+  header { padding: 48px 0 8px; }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--copper); font-weight: 600;
+  }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: clamp(28px, 5vw, 40px);
+    font-weight: 700; letter-spacing: -0.02em;
+    margin: 8px 0 10px;
+  }
+  .lede { color: var(--ink-soft); max-width: 560px; font-size: 16px; }
+
+  /* Route diagram */
+  .route-panel {
+    background: var(--ink);
+    border-radius: 14px;
+    padding: 28px 24px 22px;
+    margin: 30px 0 34px;
+    overflow-x: auto;
+  }
+  .route-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #8FA3B8; margin-bottom: 16px;
+  }
+  .route {
+    display: flex; align-items: center; gap: 0;
+    min-width: 640px;
+  }
+  .node {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    flex: 0 0 auto; width: 118px; text-align: center;
+  }
+  .node .dot {
+    width: 44px; height: 44px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    background: #253546; border: 2px solid #3B4F63;
+    font-size: 19px;
+    transition: all .4s ease;
+  }
+  .node.lit .dot { background: var(--copper); border-color: #E08A4F; }
+  .node .name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 12.5px; font-weight: 600; color: #C6D2DE;
+  }
+  .node.lit .name { color: #fff; }
+  .wire {
+    flex: 1 1 auto; height: 2px; position: relative;
+    background: #3B4F63; min-width: 40px;
+    margin: 0 4px 34px;
+  }
+  .wire .fill {
+    position: absolute; inset: 0; width: 0%;
+    background: var(--copper); transition: width .5s ease;
+  }
+  .wire.lit .fill { width: 100%; }
+  .wire .tag {
+    position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px; color: #8FA3B8; white-space: nowrap;
+    transition: color .4s ease;
+  }
+  .wire.lit .tag { color: #F0B98A; }
+
+  /* Questions */
+  .q-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 26px 26px 24px;
+    margin-bottom: 18px;
+    transition: opacity .3s ease;
+  }
+  .q-card.disabled { opacity: 0.38; pointer-events: none; }
+  .q-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--copper); font-weight: 600; margin-bottom: 6px;
+  }
+  .q-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 19px; font-weight: 600; margin-bottom: 4px;
+  }
+  .q-help { color: var(--ink-soft); font-size: 14px; margin-bottom: 16px; }
+  details.glossary {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+  details.glossary summary {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13.5px; font-weight: 600;
+    color: var(--copper); cursor: pointer;
+    list-style-position: inside;
+  }
+  details.glossary[open] summary { margin-bottom: 8px; }
+  details.glossary dl { margin: 0; }
+  details.glossary dt {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 13.5px; font-weight: 600; margin-top: 10px;
+  }
+  details.glossary dd {
+    margin: 2px 0 0; font-size: 13.5px; color: var(--ink-soft);
+  }
+  .opts { display: flex; flex-wrap: wrap; gap: 10px; }
+  .opt {
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px; font-weight: 500;
+    border: 1.5px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+    border-radius: 10px;
+    padding: 11px 18px;
+    cursor: pointer;
+    transition: all .15s ease;
+    text-align: left;
+  }
+  .opt:hover { border-color: var(--copper); }
+  .opt:focus-visible { outline: 3px solid var(--copper); outline-offset: 2px; }
+  .opt.sel {
+    background: var(--copper); border-color: var(--copper); color: #fff;
+  }
+  .opt small { display: block; font-weight: 400; font-size: 12.5px; opacity: .75; margin-top: 2px; }
+  .opt.blocked { opacity: .45; pointer-events: none; }
+  .hide { display: none !important; }
+  .caveat {
+    background: var(--warn-soft); border: 1px solid #E4D3AC;
+    border-radius: 10px; padding: 14px 16px;
+    font-size: 14px; color: var(--ink); margin: -4px 0 22px;
+  }
+  .caveat ul { margin: 6px 0 0 18px; }
+  .caveat li { padding: 2px 0; color: var(--ink-soft); }
+
+  /* Result */
+  #result { display: none; margin-top: 34px; }
+  #result.show { display: block; animation: rise .4s ease; }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .rec-card {
+    background: var(--card);
+    border: 1.5px solid var(--copper);
+    border-radius: 14px;
+    overflow: hidden;
+  }
+  .rec-head {
+    background: var(--copper-soft);
+    padding: 22px 26px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .rec-eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--copper); font-weight: 600;
+  }
+  .rec-title {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px; font-weight: 700; letter-spacing: -0.01em;
+    margin-top: 4px;
+  }
+  .rec-body { padding: 24px 26px 26px; }
+  .rec-summary { font-size: 15.5px; color: var(--ink-soft); margin-bottom: 22px; }
+
+  .cost-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+  .cost {
+    flex: 1 1 160px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .cost .c-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .cost .c-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 21px; font-weight: 600; margin-top: 3px;
+  }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 22px; }
+  @media (max-width: 640px) { .cols { grid-template-columns: 1fr; } }
+  .col h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; font-weight: 600; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px; font-weight: 600; letter-spacing: .08em;
+    padding: 2px 8px; border-radius: 20px; text-transform: uppercase;
+  }
+  .pill.good { background: var(--signal-soft); color: var(--signal); }
+  .pill.trade { background: var(--warn-soft); color: var(--warn); }
+  .col ul { list-style: none; }
+  .col li {
+    font-size: 14px; color: var(--ink-soft);
+    padding: 5px 0 5px 18px; position: relative;
+  }
+  .col li::before {
+    content: ''; position: absolute; left: 0; top: 13px;
+    width: 7px; height: 2px; border-radius: 1px;
+  }
+  .col.good li::before { background: var(--signal); }
+  .col.trade li::before { background: var(--warn); }
+
+  .steps h3 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; font-weight: 600; margin-bottom: 10px;
+  }
+  .steps ol { padding-left: 20px; }
+  .steps li { font-size: 14px; color: var(--ink-soft); padding: 4px 0; }
+
+  .reset-row { margin-top: 22px; text-align: center; }
+  .reset {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 14px; font-weight: 600;
+    background: none; border: 1.5px solid var(--line);
+    border-radius: 10px; padding: 10px 22px;
+    cursor: pointer; color: var(--ink-soft);
+    transition: all .15s ease;
+  }
+  .reset:hover { border-color: var(--ink); color: var(--ink); }
+
+  footer {
+    margin-top: 46px; text-align: center;
+    font-size: 12.5px; color: var(--ink-soft);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">interface.ai &middot; Voice AI Onboarding</div>
+    <h1>Find your call routing method</h1>
+    <p class="lede">A few quick questions. One recommendation. This tool matches your phone system, IVR setup, and contact center capabilities to the routing method that fits.</p>
+  </header>
+
+  <div class="route-panel">
+    <div class="route-label">Your call path</div>
+    <div class="route">
+      <div class="node lit" id="n-caller">
+        <div class="dot">&#128100;</div><div class="name">Caller</div>
+      </div>
+      <div class="wire hide" id="w-ivr"><div class="fill"></div><span class="tag">press 2 for AI</span></div>
+      <div class="node hide" id="n-ivr">
+        <div class="dot">&#9742;&#65039;</div><div class="name">Your IVR</div>
+      </div>
+      <div class="wire" id="w-inbound"><div class="fill"></div><span class="tag" id="t-inbound">inbound method</span></div>
+      <div class="node" id="n-ai">
+        <div class="dot">&#129302;</div><div class="name">Voice AI</div>
+      </div>
+      <div class="wire" id="w-handoff"><div class="fill"></div><span class="tag" id="t-handoff">agent handoff</span></div>
+      <div class="node" id="n-cc">
+        <div class="dot">&#127911;</div><div class="name">Contact Center</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="q-card" id="q1">
+    <div class="q-num">Question 1 of 4</div>
+    <div class="q-title">Does your institution use RingCentral CxOne for its contact center?</div>
+    <div class="q-help">RingCentral customers have a dedicated integration path.</div>
+    <div class="opts">
+      <button class="opt" data-q="1" data-v="yes">Yes, we use RingCentral CxOne</button>
+      <button class="opt" data-q="1" data-v="no">No / different platform</button>
+    </div>
+  </div>
+
+  <div class="q-card disabled" id="qivr">
+    <div class="q-num">Question 2 of 4</div>
+    <div class="q-title">Who answers the call first?</div>
+    <div class="q-help">This changes which inbound methods are available and whether Caller ID data survives.</div>
+    <div class="opts">
+      <button class="opt" data-q="ivr" data-v="direct">The AI answers directly<small>The AI is your front door and acts as the IVR. Cleanest path, one inbound leg.</small></button>
+      <button class="opt" data-q="ivr" data-v="front">Our existing IVR answers first<small>Your phone menu stays in place and sends callers to the AI ("press 2 for the assistant").</small></button>
+    </div>
+  </div>
+
+  <div class="q-card disabled" id="q2">
+    <div class="q-num">Question 3 of 4</div>
+    <div class="q-title">How should calls reach the Voice AI?</div>
+    <div class="q-help">This is about your member-facing phone number and how much setup your team can take on.</div>
+    <details class="glossary">
+      <summary>Not sure what these mean? Plain-English guide</summary>
+      <dl>
+        <dt>SIP trunk</dt>
+        <dd>A dedicated digital connection between your phone carrier and interface.ai. Think of it as a private lane instead of public roads: cheaper per call and better quality, but your network team helps build the on-ramp (setup and IP whitelisting).</dd>
+        <dt>Porting your number</dt>
+        <dd>Your phone number moves to interface.ai's carrier permanently, the same way you keep your cell number when switching providers. After the port, interface.ai handles all the routing. Your team does almost nothing ongoing.</dd>
+        <dt>Forwarding your number</dt>
+        <dd>Your current carrier keeps the number and simply forwards calls onward, like mail forwarding. Fastest to set up. The trade-off: the "envelope" gets restamped along the way, so the original caller's network details don't survive the trip.</dd>
+      </dl>
+    </details>
+    <div class="opts">
+      <button class="opt" data-q="2" data-v="sip">SIP trunk from our carrier<small>Best rates and call quality. Requires network setup by your team.</small></button>
+      <button class="opt" data-q="2" data-v="port">Port our number to interface.ai's carrier<small>Hands-off for your team. Number moves permanently.</small></button>
+      <button class="opt" data-q="2" data-v="fwd">Forward our number<small>Fastest to launch. Good for pilots. No Caller ID data.</small></button>
+    </div>
+  </div>
+
+  <div class="q-card disabled" id="q3">
+    <div class="q-num">Question 4 of 4</div>
+    <div class="q-title">How will the AI hand calls to your agents?</div>
+    <div class="q-help">Ask your contact center platform team which of these it supports.</div>
+    <details class="glossary">
+      <summary>Not sure what these mean? Plain-English guide</summary>
+      <dl>
+        <dt>SIP Refer</dt>
+        <dd>The AI acts like a receptionist who redirects your call to the right agent, then hangs up completely. Nothing stays on the line afterward, which is why it's a one-time flat fee instead of a running meter. Your contact center platform has to support receiving this kind of redirect.</dd>
+        <dt>SIP Invite</dt>
+        <dd>The AI conferences the agent in, then goes quiet. But the call stays connected through interface.ai's line for the whole conversation, like a receptionist holding the two lines together. That open line is why billing runs per minute while you talk to the agent.</dd>
+        <dt>Standard phone call (PSTN)</dt>
+        <dd>The AI simply dials your contact center like any regular outbound phone call. Works with any phone system, zero setup. The trade-off: the call travels the public phone network, where nobody controls the path, so quality can vary and caller details can get lost.</dd>
+      </dl>
+    </details>
+    <div class="opts">
+      <button class="opt" data-q="3" data-v="refer">SIP Refer<small>Lowest cost. Flat fee per transfer.</small></button>
+      <button class="opt" data-q="3" data-v="invite">SIP Invite<small>Low cost per minute. Broad support.</small></button>
+      <button class="opt" data-q="3" data-v="pstn">Standard phone call (PSTN)<small>Works with any system. No setup.</small></button>
+    </div>
+  </div>
+
+  <div id="result">
+    <div class="rec-card">
+      <div class="rec-head">
+        <div class="rec-eyebrow" id="r-eyebrow">Recommended method</div>
+        <div class="rec-title" id="r-title"></div>
+      </div>
+      <div class="rec-body">
+        <p class="rec-summary" id="r-summary"></p>
+        <div class="caveat" id="r-caveat" style="display:none"></div>
+        <div class="cost-row" id="r-costs"></div>
+        <div class="cols">
+          <div class="col good">
+            <h3><span class="pill good">Strengths</span></h3>
+            <ul id="r-pros"></ul>
+          </div>
+          <div class="col trade">
+            <h3><span class="pill trade">Trade-offs</span></h3>
+            <ul id="r-cons"></ul>
+          </div>
+        </div>
+        <div class="steps">
+          <h3>What happens next</h3>
+          <ol id="r-steps"></ol>
+        </div>
+      </div>
+    </div>
+    <div class="reset-row">
+      <button class="reset" onclick="resetAll()">Start over</button>
+    </div>
+  </div>
+
+  <footer>Prepared by interface.ai Technical Solutions. Pricing shown is indicative; your agreement governs.</footer>
+</div>
+
+<script>
+const OPTIONS = {
+  1: {
+    title: "Option 1: SIP + SIP Refer",
+    summary: "Calls arrive over a SIP trunk from your carrier. When the AI transfers a caller, it hands the entire call back to your contact center and steps out completely. This is the most cost-efficient method available.",
+    costs: [["AI call handling", "$0.10/min"], ["Agent transfer", "$0.05 flat"]],
+    pros: ["Lowest total cost of any method", "Caller ID (network forensics) supported", "Your existing carrier services (SMS, outbound) keep working", "No call-drop risk from multi-carrier hopping"],
+    cons: ["Your contact center must support SIP Refer", "SIP setup takes coordination between teams", "IP whitelisting required on both sides"],
+    steps: ["Joint call: your telecom team + interface.ai Solution Architect + contact center platform team", "Your side completes the call handling artifacts interface.ai provides", "Both sides whitelist each other's IP addresses", "Configurations finalized and tested on each end"],
+    inbound: "SIP trunk", handoff: "SIP Refer"
+  },
+  2: {
+    title: "Option 2: SIP + SIP Invite",
+    summary: "Calls arrive over a SIP trunk. When the AI transfers a caller, the call stays bridged through interface.ai's infrastructure while your agent talks. Best cost-efficient choice when your platform can't do SIP Refer.",
+    costs: [["AI call handling", "$0.10/min"], ["Agent conversation", "$0.01/min"]],
+    pros: ["Very low per-minute transfer cost", "Caller ID (network forensics) supported", "Your existing carrier services keep working", "Eliminates call drops and spam-tagging from multi-carrier routing"],
+    cons: ["Per-minute billing continues through the agent conversation", "SIP setup takes coordination between teams", "IP whitelisting required on both sides"],
+    steps: ["Joint call: your telecom team + interface.ai Solution Architect + contact center platform team", "Your side completes the call handling artifacts interface.ai provides", "Both sides whitelist each other's IP addresses", "Configurations finalized and tested on each end"],
+    inbound: "SIP trunk", handoff: "SIP Invite"
+  },
+  3: {
+    title: "Option 3: SIP + PSTN",
+    summary: "Calls arrive over a SIP trunk. Transfers to your agents go out as standard phone calls. Keeps the AI leg cheap while requiring zero contact center configuration.",
+    costs: [["AI call handling", "$0.10/min"], ["Agent conversation", "$0.02/min"]],
+    pros: ["Cost-efficient AI leg", "Caller ID supported on inbound", "Transfer line is quick to configure", "No contact center involvement needed for transfers"],
+    cons: ["Transferred calls cross multiple public carriers; call path is outside anyone's control", "SIP inbound setup still takes coordination", "IP whitelisting required"],
+    steps: ["Joint call: your telecom team + interface.ai Solution Architect", "interface.ai whitelists your contact center IPs; you whitelist interface.ai's", "Your side completes the bot call handling artifacts", "Configurations finalized on both ends"],
+    inbound: "SIP trunk", handoff: "Phone call (PSTN)"
+  },
+  4: {
+    title: "Option 4: Number Porting + SIP Invite",
+    summary: "Your member-facing number ports to interface.ai's carrier, so we handle routing end to end. Agent transfers use SIP for low cost and clean call paths. The preferred hands-off method for most institutions.",
+    costs: [["AI call handling", "$0.12/min"], ["Agent conversation", "$0.01/min"]],
+    pros: ["Nearly zero effort for your telecom team", "Caller ID (network forensics) supported", "No ongoing number maintenance cost on your side", "Clean single-carrier path eliminates drops and spam tagging"],
+    cons: ["If SMS runs on that number, your SMS provider must re-register it after porting", "Outbound calls may need third-party attestation", "SIP transfer setup still takes some coordination"],
+    steps: ["You complete the porting authorization artifacts interface.ai provides", "interface.ai issues a temporary number that mimics yours during the port window (a few days)", "Joint call to confirm the transfer configuration", "Whitelisting and final configuration on both ends"],
+    inbound: "Number ported", handoff: "SIP Invite"
+  },
+  5: {
+    title: "Option 5: Number Porting + PSTN",
+    summary: "Your number ports to interface.ai's carrier and agent transfers go out as standard phone calls. The lowest-effort full setup available: no SIP work anywhere.",
+    costs: [["AI call handling", "$0.12/min"], ["Agent conversation", "$0.02/min"]],
+    pros: ["Easiest complete setup; no SIP configuration at all", "Caller ID supported on inbound", "Transfer line configured quickly", "No contact center involvement needed"],
+    cons: ["Highest per-minute cost profile", "Transferred calls cross public carriers; path quality not controllable", "SMS re-registration needed if SMS runs on the number"],
+    steps: ["You complete the porting authorization artifacts", "interface.ai issues a temporary number during the port window (a few days)", "interface.ai completes the routing configuration"],
+    inbound: "Number ported", handoff: "Phone call (PSTN)"
+  },
+  6: {
+    title: "Option 6: Call Forwarding + PSTN",
+    summary: "You forward your member-facing number to an interface.ai number, and agent transfers go out as standard calls. The fastest possible launch. Best for pilots and quick starts.",
+    costs: [["AI call handling", "$0.12/min"], ["Agent conversation", "$0.02/min"]],
+    pros: ["Quickest and easiest method to go live", "No contact center involvement", "No porting, no SIP, no artifacts"],
+    cons: ["No Caller ID (network forensics) on inbound calls", "Both legs cross public carriers; call path not controllable", "Usually a stepping stone, not a destination"],
+    steps: ["interface.ai completes its configuration", "You set your member-facing number to forward to the interface.ai number"],
+    inbound: "Forwarded", handoff: "Phone call (PSTN)"
+  },
+  7: {
+    title: "Option 7: Call Forwarding + SIP Invite",
+    summary: "You forward your number to interface.ai for a fast launch, while agent transfers use SIP for lower cost and a clean transfer path.",
+    costs: [["AI call handling", "$0.12/min"], ["Agent conversation", "$0.01/min"]],
+    pros: ["Fast inbound setup with no porting", "Cheap, clean transfer leg with no drop or spam-tag risk", "No PSTN quality issues on the agent conversation"],
+    cons: ["No Caller ID (network forensics) on inbound calls", "SIP transfer setup takes coordination and IP whitelisting", "Inbound leg still crosses public carriers"],
+    steps: ["Joint call: your team + interface.ai Solution Architect + contact center team", "Your side completes the transferred-call handling artifacts", "Both sides whitelist IPs and finalize configuration", "You forward your member-facing number to the interface.ai number"],
+    inbound: "Forwarded", handoff: "SIP Invite"
+  },
+  8: {
+    title: "Option 8: RingCentral CxOne Routing",
+    summary: "Purpose-built path for institutions on RingCentral CxOne. Your RingCentral number conferences the AI in over a SIP line, and the AI routes callers to specific contact center queues through API parameters.",
+    costs: [["Routing", "Per agreement"], ["vs. porting", "More cost-efficient"]],
+    pros: ["Convenient: built for your existing RingCentral setup", "Queue-level routing driven by the AI via API", "More cost-efficient than PSTN or porting"],
+    cons: ["No Caller ID (network forensics)", "Multi-party coordination for the initial SIP setup", "Integration takes longer than simpler methods"],
+    steps: ["Joint call: interface.ai Solution Architect + RingCentral technical team to exchange parameters", "RingCentral completes the artifacts interface.ai provides", "RingCentral and interface.ai finalize configurations on their ends"],
+    inbound: "RingCentral", handoff: "Queue routing"
+  }
+};
+
+const state = { q1: null, qivr: null, q2: null, q3: null };
+
+document.querySelectorAll('.opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const q = btn.dataset.q, v = btn.dataset.v;
+    state['q' + q] = v;
+    btn.parentElement.querySelectorAll('.opt').forEach(b => b.classList.remove('sel'));
+    btn.classList.add('sel');
+    advance(q);
+  });
+});
+
+function advance(q) {
+  if (q === '1') {
+    resetBelow(['ivr', '2', '3']);
+    if (state.q1 === 'yes') {
+      setLock('qivr', true); setLock('q2', true); setLock('q3', true);
+      showResult(8);
+    } else {
+      setLock('qivr', false); setLock('q2', true); setLock('q3', true);
+      hideResult();
+    }
+  }
+  if (q === 'ivr') {
+    resetBelow(['2', '3']);
+    setLock('q2', false); setLock('q3', true);
+    hideResult();
+    applyIvrEffects();
+    updateRoute();
+  }
+  if (q === '2') {
+    resetBelow(['3']);
+    setLock('q3', false);
+    hideResult();
+    updateRoute();
+  }
+  if (q === '3') {
+    updateRoute();
+    showResult(pick());
+  }
+}
+
+const PORT_SMALL_DEFAULT = "Hands-off for your team. Number moves permanently.";
+const PORT_SMALL_BLOCKED = "Not available with your IVR in front: the IVR keeps the member-facing number.";
+
+function applyIvrEffects() {
+  const front = state.qivr === 'front';
+  const portBtn = document.querySelector('.opt[data-q="2"][data-v="port"]');
+  portBtn.classList.toggle('blocked', front);
+  portBtn.querySelector('small').textContent = front ? PORT_SMALL_BLOCKED : PORT_SMALL_DEFAULT;
+  const ivrNode = document.getElementById('n-ivr');
+  const ivrWire = document.getElementById('w-ivr');
+  ivrNode.classList.toggle('hide', !front);
+  ivrWire.classList.toggle('hide', !front);
+  ivrNode.classList.toggle('lit', front);
+  ivrWire.classList.toggle('lit', front);
+}
+
+function setLock(id, lock) {
+  document.getElementById(id).classList.toggle('disabled', lock);
+}
+function resetBelow(list) {
+  list.forEach(k => {
+    state['q' + k] = null;
+    const id = k === 'ivr' ? 'qivr' : 'q' + k;
+    document.querySelectorAll('#' + id + ' .opt').forEach(b => b.classList.remove('sel'));
+  });
+  updateRoute();
+}
+
+function pick() {
+  const { q2, q3 } = state;
+  if (q2 === 'sip')  return q3 === 'refer' ? 1 : q3 === 'invite' ? 2 : 3;
+  if (q2 === 'port') return q3 === 'pstn' ? 5 : 4;   // refer not supported on ported path; invite is the SIP handoff
+  if (q2 === 'fwd')  return q3 === 'pstn' ? 6 : 7;
+  return 6;
+}
+
+function updateRoute(opt) {
+  const inMap = { sip: 'SIP trunk', port: 'Number ported', fwd: 'Forwarded' };
+  const hoMap = { refer: 'SIP Refer', invite: 'SIP Invite', pstn: 'PSTN call' };
+  const tIn = document.getElementById('t-inbound');
+  const tHo = document.getElementById('t-handoff');
+  const wIn = document.getElementById('w-inbound');
+  const wHo = document.getElementById('w-handoff');
+
+  if (opt) {
+    tIn.textContent = opt.inbound; tHo.textContent = opt.handoff;
+    wIn.classList.add('lit'); wHo.classList.add('lit');
+    document.getElementById('n-ai').classList.add('lit');
+    document.getElementById('n-cc').classList.add('lit');
+    return;
+  }
+  tIn.textContent = state.q2 ? inMap[state.q2] : 'inbound method';
+  wIn.classList.toggle('lit', !!state.q2);
+  document.getElementById('n-ai').classList.toggle('lit', !!state.q2);
+  tHo.textContent = state.q3 ? hoMap[state.q3] : 'agent handoff';
+  wHo.classList.toggle('lit', !!state.q3);
+  document.getElementById('n-cc').classList.toggle('lit', !!state.q3);
+}
+
+function showResult(n) {
+  const o = OPTIONS[n];
+  document.getElementById('r-title').textContent = o.title;
+  document.getElementById('r-summary').textContent = o.summary;
+
+  const note = (state.q2 === 'port' && state.q3 === 'refer')
+    ? ' Note: SIP Refer is not available with a ported number, so SIP Invite is used for the agent handoff.'
+    : '';
+  if (note) document.getElementById('r-summary').textContent += note;
+
+  const cav = document.getElementById('r-caveat');
+  if (state.qivr === 'front' && n !== 8) {
+    cav.style.display = 'block';
+    cav.innerHTML = '<strong>Because your IVR answers first:</strong><ul>' +
+      '<li>Caller ID (network forensics) may be lost if your IVR transfers calls over a standard phone line. A SIP transfer from your IVR to the AI preserves it best.</li>' +
+      '<li>The IVR-to-AI leg is an additional call path; your institution pays its carrier for that leg on top of the rates shown below.</li>' +
+      '</ul>';
+  } else {
+    cav.style.display = 'none';
+  }
+
+  document.getElementById('r-costs').innerHTML = o.costs.map(c =>
+    '<div class="cost"><div class="c-label">' + c[0] + '</div><div class="c-val">' + c[1] + '</div></div>'
+  ).join('');
+  document.getElementById('r-pros').innerHTML = o.pros.map(p => '<li>' + p + '</li>').join('');
+  document.getElementById('r-cons').innerHTML = o.cons.map(c => '<li>' + c + '</li>').join('');
+  document.getElementById('r-steps').innerHTML = o.steps.map(s => '<li>' + s + '</li>').join('');
+  document.getElementById('result').classList.add('show');
+  updateRoute(o);
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function hideResult() {
+  document.getElementById('result').classList.remove('show');
+}
+
+function resetAll() {
+  state.q1 = state.qivr = state.q2 = state.q3 = null;
+  document.querySelectorAll('.opt').forEach(b => b.classList.remove('sel'));
+  setLock('qivr', true); setLock('q2', true); setLock('q3', true);
+  hideResult();
+  applyIvrEffects();
+  document.getElementById('n-ai').classList.remove('lit');
+  document.getElementById('n-cc').classList.remove('lit');
+  document.getElementById('w-inbound').classList.remove('lit');
+  document.getElementById('w-handoff').classList.remove('lit');
+  document.getElementById('t-inbound').textContent = 'inbound method';
+  document.getElementById('t-handoff').textContent = 'agent handoff';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+</body>
+</html>
