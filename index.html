@@ -96,6 +96,19 @@
     transition: color .4s ease;
   }
   .wire.lit .tag { color: #F0B98A; }
+  .node .sub {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px; color: #7E93A9; margin-top: -4px;
+  }
+  .node.lit .sub { color: #F0B98A; }
+  .wire.dashed .fill {
+    background: repeating-linear-gradient(90deg, var(--copper) 0 6px, transparent 6px 12px);
+  }
+  .route-note {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; color: #8FA3B8;
+    margin-top: 14px; min-height: 14px;
+  }
 
   /* Questions */
   .q-card {
@@ -277,23 +290,8 @@
 
   <div class="route-panel">
     <div class="route-label">Your call path</div>
-    <div class="route">
-      <div class="node lit" id="n-caller">
-        <div class="dot">&#128100;</div><div class="name">Caller</div>
-      </div>
-      <div class="wire hide" id="w-ivr"><div class="fill"></div><span class="tag">press 2 for AI</span></div>
-      <div class="node hide" id="n-ivr">
-        <div class="dot">&#9742;&#65039;</div><div class="name">Your IVR</div>
-      </div>
-      <div class="wire" id="w-inbound"><div class="fill"></div><span class="tag" id="t-inbound">inbound method</span></div>
-      <div class="node" id="n-ai">
-        <div class="dot">&#129302;</div><div class="name">Voice AI</div>
-      </div>
-      <div class="wire" id="w-handoff"><div class="fill"></div><span class="tag" id="t-handoff">agent handoff</span></div>
-      <div class="node" id="n-cc">
-        <div class="dot">&#127911;</div><div class="name">Contact Center</div>
-      </div>
-    </div>
+    <div class="route" id="route"></div>
+    <div class="route-note" id="route-note"></div>
   </div>
 
   <div class="q-card" id="q1">
@@ -498,16 +496,16 @@ function advance(q) {
     setLock('q2', false); setLock('q3', true);
     hideResult();
     applyIvrEffects();
-    updateRoute();
+    renderRoute();
   }
   if (q === '2') {
     resetBelow(['3']);
     setLock('q3', false);
     hideResult();
-    updateRoute();
+    renderRoute();
   }
   if (q === '3') {
-    updateRoute();
+    renderRoute();
     showResult(pick());
   }
 }
@@ -520,12 +518,7 @@ function applyIvrEffects() {
   const portBtn = document.querySelector('.opt[data-q="2"][data-v="port"]');
   portBtn.classList.toggle('blocked', front);
   portBtn.querySelector('small').textContent = front ? PORT_SMALL_BLOCKED : PORT_SMALL_DEFAULT;
-  const ivrNode = document.getElementById('n-ivr');
-  const ivrWire = document.getElementById('w-ivr');
-  ivrNode.classList.toggle('hide', !front);
-  ivrWire.classList.toggle('hide', !front);
-  ivrNode.classList.toggle('lit', front);
-  ivrWire.classList.toggle('lit', front);
+  renderRoute();
 }
 
 function setLock(id, lock) {
@@ -537,7 +530,7 @@ function resetBelow(list) {
     const id = k === 'ivr' ? 'qivr' : 'q' + k;
     document.querySelectorAll('#' + id + ' .opt').forEach(b => b.classList.remove('sel'));
   });
-  updateRoute();
+  renderRoute();
 }
 
 function pick() {
@@ -548,27 +541,79 @@ function pick() {
   return 6;
 }
 
-function updateRoute(opt) {
-  const inMap = { sip: 'SIP trunk', port: 'Number ported', fwd: 'Forwarded' };
-  const hoMap = { refer: 'SIP Refer', invite: 'SIP Invite', pstn: 'PSTN call' };
-  const tIn = document.getElementById('t-inbound');
-  const tHo = document.getElementById('t-handoff');
-  const wIn = document.getElementById('w-inbound');
-  const wHo = document.getElementById('w-handoff');
+function nodeHtml(n) {
+  return '<div class="node' + (n.lit ? ' lit' : '') + '">' +
+    '<div class="dot">' + n.icon + '</div>' +
+    '<div class="name">' + n.name + '</div>' +
+    (n.sub ? '<div class="sub">' + n.sub + '</div>' : '') +
+    '</div>';
+}
+function wireHtml(w) {
+  return '<div class="wire' + (w.lit ? ' lit' : '') + (w.dashed ? ' dashed' : '') + '">' +
+    '<div class="fill"></div><span class="tag">' + w.tag + '</span></div>';
+}
 
-  if (opt) {
-    tIn.textContent = opt.inbound; tHo.textContent = opt.handoff;
-    wIn.classList.add('lit'); wHo.classList.add('lit');
-    document.getElementById('n-ai').classList.add('lit');
-    document.getElementById('n-cc').classList.add('lit');
+function renderRoute(finalOpt) {
+  const parts = [];
+  const note = document.getElementById('route-note');
+  parts.push(nodeHtml({ icon: '&#128100;', name: 'Caller', lit: true }));
+
+  if (finalOpt === 8) {
+    parts.push(wireHtml({ tag: 'member number', lit: true }));
+    parts.push(nodeHtml({ icon: '&#9742;&#65039;', name: 'RingCentral', sub: 'CxOne', lit: true }));
+    parts.push(wireHtml({ tag: 'SIP conference', lit: true }));
+    parts.push(nodeHtml({ icon: '&#129302;', name: 'Voice AI', lit: true }));
+    parts.push(wireHtml({ tag: 'API queue routing', lit: true }));
+    parts.push(nodeHtml({ icon: '&#127911;', name: 'Contact Center', lit: true }));
+    document.getElementById('route').innerHTML = parts.join('');
+    note.textContent = 'The AI tells RingCentral which agent queue to route each caller to.';
     return;
   }
-  tIn.textContent = state.q2 ? inMap[state.q2] : 'inbound method';
-  wIn.classList.toggle('lit', !!state.q2);
-  document.getElementById('n-ai').classList.toggle('lit', !!state.q2);
-  tHo.textContent = state.q3 ? hoMap[state.q3] : 'agent handoff';
-  wHo.classList.toggle('lit', !!state.q3);
-  document.getElementById('n-cc').classList.toggle('lit', !!state.q3);
+
+  if (state.qivr === 'front') {
+    parts.push(wireHtml({ tag: 'press 2 for AI', lit: true }));
+    parts.push(nodeHtml({ icon: '&#9742;&#65039;', name: 'Your IVR', lit: true }));
+  }
+
+  const q2 = state.q2, q3 = state.q3;
+  if (q2 === 'sip') {
+    parts.push(wireHtml({ tag: 'your line', lit: true }));
+    parts.push(nodeHtml({ icon: '&#127970;', name: 'Your carrier', sub: 'or call center', lit: true }));
+    parts.push(wireHtml({ tag: 'SIP INVITE', lit: true }));
+    parts.push(nodeHtml({ icon: '&#128737;&#65039;', name: 'Border controller', sub: 'SBC', lit: true }));
+    parts.push(wireHtml({ tag: '', lit: true }));
+  } else if (q2 === 'port') {
+    parts.push(wireHtml({ tag: 'you dial as usual', lit: true }));
+    parts.push(nodeHtml({ icon: '&#128222;', name: 'interface.ai number', sub: 'your number, ported', lit: true }));
+    parts.push(wireHtml({ tag: '', lit: true }));
+  } else if (q2 === 'fwd') {
+    parts.push(wireHtml({ tag: 'your line', lit: true }));
+    parts.push(nodeHtml({ icon: '&#127970;', name: 'Your carrier', lit: true }));
+    parts.push(wireHtml({ tag: 'forwarded', lit: true }));
+  } else {
+    parts.push(wireHtml({ tag: 'inbound method', lit: false }));
+  }
+  parts.push(nodeHtml({ icon: '&#129302;', name: 'Voice AI', lit: !!q2 }));
+
+  if (q3 === 'refer') {
+    parts.push(wireHtml({ tag: 'SIP REFER', lit: true, dashed: true }));
+  } else if (q3 === 'invite') {
+    parts.push(wireHtml({ tag: 'SIP INVITE', lit: true }));
+  } else if (q3 === 'pstn') {
+    parts.push(wireHtml({ tag: 'outbound call', lit: true }));
+  } else {
+    parts.push(wireHtml({ tag: 'agent handoff', lit: false }));
+  }
+  parts.push(nodeHtml({ icon: '&#127911;', name: 'Contact Center', lit: !!q3 }));
+
+  document.getElementById('route').innerHTML = parts.join('');
+
+  const notes = {
+    refer: 'Dashed line: after transfer, the AI and interface.ai leave the call entirely.',
+    invite: 'The call stays bridged through interface.ai while the caller talks to your agent.',
+    pstn: 'The transfer travels the public phone network to reach your agents.'
+  };
+  note.textContent = q3 ? notes[q3] : '';
 }
 
 function showResult(n) {
@@ -599,7 +644,7 @@ function showResult(n) {
   document.getElementById('r-cons').innerHTML = o.cons.map(c => '<li>' + c + '</li>').join('');
   document.getElementById('r-steps').innerHTML = o.steps.map(s => '<li>' + s + '</li>').join('');
   document.getElementById('result').classList.add('show');
-  updateRoute(o);
+  renderRoute(n === 8 ? 8 : undefined);
   document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -613,14 +658,10 @@ function resetAll() {
   setLock('qivr', true); setLock('q2', true); setLock('q3', true);
   hideResult();
   applyIvrEffects();
-  document.getElementById('n-ai').classList.remove('lit');
-  document.getElementById('n-cc').classList.remove('lit');
-  document.getElementById('w-inbound').classList.remove('lit');
-  document.getElementById('w-handoff').classList.remove('lit');
-  document.getElementById('t-inbound').textContent = 'inbound method';
-  document.getElementById('t-handoff').textContent = 'agent handoff';
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+renderRoute();
 </script>
 </body>
 </html>
